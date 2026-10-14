@@ -1,0 +1,16 @@
+{
+  "name": "uniform-request-app",
+  "version": "1.0.0",
+  "description": "制服等支給申請アプリ / Uniform request web app (no dependencies)",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/api.test.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}
