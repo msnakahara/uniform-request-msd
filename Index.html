@@ -1,0 +1,837 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>制服申請 Uniform Request</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&display=swap">
+<style>
+/* Layout: single-column wizard (確認 → 質問 → 申請書), with a form-style sheet at the end */
+:root{
+  --bg:#f3f4f7; --surface:#ffffff; --fg:#1b2233; --muted:#5d6678; --line:#d6dae3;
+  --accent:#243b6b; --accent-fg:#ffffff; --mark:#e3b505; --ok:#1f7a4d; --ok-bg:#e4f3ea;
+  --bad:#b3261e; --bad-bg:#fbe9e7; --warn-bg:#fff4d6; --warn:#7a5a00;
+  --f-body:'Noto Sans JP','Hiragino Sans','Yu Gothic',system-ui,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121723; --surface:#1b2233; --fg:#e8ebf2; --muted:#9aa4b8; --line:#33405a;
+  --accent:#8fb0f2; --accent-fg:#0f1626; --mark:#e3b505; --ok:#6fd3a0; --ok-bg:#16352a;
+  --bad:#ff9d94; --bad-bg:#3b1e1b; --warn-bg:#3a3014; --warn:#f1d27a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121723; --surface:#1b2233; --fg:#e8ebf2; --muted:#9aa4b8; --line:#33405a;
+  --accent:#8fb0f2; --accent-fg:#0f1626; --mark:#e3b505; --ok:#6fd3a0; --ok-bg:#16352a;
+  --bad:#ff9d94; --bad-bg:#3b1e1b; --warn-bg:#3a3014; --warn:#f1d27a; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.7;padding-inline:16px;padding-block:20px 56px}
+.wrap{max-width:760px;margin-inline:auto;display:flex;flex-direction:column;gap:16px}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+h1{font-size:1.35rem;margin:0;line-height:1.4;text-wrap:balance}
+h1 small{display:block;font-size:.8rem;font-weight:400;color:var(--muted)}
+h2{font-size:1.1rem;margin:0 0 4px}
+.lang{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.lang button{border:0;background:var(--surface);color:var(--fg);padding:6px 14px;font:inherit;font-size:.85rem;cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);font-weight:700}
+.steps{display:flex;gap:8px;margin:0;padding:0;list-style:none}
+.steps li{flex:1;min-width:0;border-top:4px solid var(--line);padding-top:6px;font-size:.8rem;color:var(--muted)}
+.steps li.on{border-color:var(--mark);color:var(--fg);font-weight:700}
+.steps li.done{border-color:var(--accent);color:var(--accent)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:18px;display:flex;flex-direction:column;gap:14px}
+.muted{color:var(--muted);font-size:.85rem}
+label{font-weight:500;font-size:.9rem}
+input[type=text],input[type=date],select{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-height:40px;width:100%;box-sizing:border-box}
+:focus-visible{outline:3px solid var(--mark);outline-offset:2px}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.row>*{flex:1 1 200px;min-width:0}
+.field{display:flex;flex-direction:column;gap:4px}
+.check{display:flex;gap:10px;align-items:flex-start;font-weight:400}
+.check input{margin-top:6px;width:18px;height:18px;flex:none}
+.btn{font:inherit;font-weight:700;border:0;border-radius:6px;padding:11px 20px;background:var(--accent);color:var(--accent-fg);cursor:pointer;align-self:flex-start}
+.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.msg{border-radius:6px;padding:12px 14px;font-size:.9rem}
+.msg.ok{background:var(--ok-bg);color:var(--ok)}
+.msg.bad{background:var(--bad-bg);color:var(--bad)}
+.msg.warn{background:var(--warn-bg);color:var(--warn)}
+.rules{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px;font-size:.9rem}
+.q{border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:8px}
+.q .qt{font-weight:700}
+.q label.opt{display:flex;gap:10px;align-items:flex-start;font-weight:400;padding:8px 10px;border:1px solid var(--line);border-radius:6px;cursor:pointer}
+.q label.opt input{margin-top:5px;flex:none}
+.q.wrong label.opt:has(input:checked){border-color:var(--bad);background:var(--bad-bg)}
+.q.right label.opt:has(input:checked){border-color:var(--ok);background:var(--ok-bg)}
+.why{font-size:.85rem;color:var(--bad)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:6px}
+table.items{border-collapse:collapse;width:100%;min-width:640px;font-size:.88rem}
+table.items th,table.items td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:middle}
+table.items th{background:var(--bg);font-weight:500;font-size:.8rem}
+table.items td.n{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+table.items select,table.items input{min-height:34px;padding:4px 6px}
+table.items input.size{width:84px}
+table.items select.qty{width:68px}
+.total{display:flex;justify-content:space-between;align-items:baseline;font-weight:700;padding:4px 2px}
+.total .v{font-family:var(--f-mono);font-size:1.3rem;font-variant-numeric:tabular-nums}
+.sub{font-size:.78rem;color:var(--muted);display:block;font-weight:400}
+/* printed-style sheet: always light paper */
+.sheet{background:#fff;color:#111;border:1px solid #999;padding:22px 24px;font-family:'Noto Sans JP','Yu Gothic',sans-serif;font-size:13px;line-height:1.6}
+.sheet h3{text-align:center;font-size:20px;letter-spacing:.3em;margin:0 0 14px}
+.sheet .meta{display:flex;flex-direction:column;gap:2px;margin-bottom:10px}
+.sheet table{border-collapse:collapse;width:100%}
+.sheet th,.sheet td{border:1px solid #333;padding:3px 6px}
+.sheet td.n{text-align:right;font-variant-numeric:tabular-nums}
+.sheet td.c{text-align:center}
+.sheet .circ{display:inline-block;border:1.5px solid #111;border-radius:50%;padding:0 6px}
+.sheet .sumrow td{font-weight:700;font-size:14px}
+.sheet .office{margin-top:14px;display:grid;grid-template-columns:2fr 1fr 1fr 1fr;border:1px solid #333}
+.sheet .office div{padding:3px 6px;border-left:1px solid #333;min-height:54px}
+.sheet .office div:first-child{border-left:0}
+.sheetwrap{overflow-x:auto}
+.sheetwrap .sheet{min-width:560px}
+.ok-badge{display:inline-block;background:var(--ok-bg);color:var(--ok);border-radius:4px;padding:1px 8px;font-size:.8rem;font-weight:700}
+@media print{
+  body{background:#fff;padding:0}
+  .no-print{display:none!important}
+  .sheet{border:0;padding:0}
+}
+@media (prefers-reduced-motion:no-preference){.card{animation:in .25s ease-out}@keyframes in{from{opacity:.4;transform:translateY(4px)}}}
+</style>
+
+<style>body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+(function(){
+'use strict';
+var L = 'ja';
+try { if (/^en/i.test(navigator.language||'')) L = 'en'; } catch(e){}
+
+/* ---------- text ---------- */
+var T = {
+  title:{ja:'制服等支給申請',en:'Uniform Request'},
+  subtitle:{ja:'マスダ 総務課 / 全社員向け',en:'Masuda General Affairs / for all employees'},
+  s1:{ja:'受取資格の確認',en:'Eligibility'},
+  s2:{ja:'ルールの質問',en:'Rules quiz'},
+  s3:{ja:'申請書',en:'Request form'},
+  e_h:{ja:'前回の申請から6か月たっていますか？',en:'Has it been 6 months since your last request?'},
+  e_p:{ja:'申請は基本的に6か月に1回、1本ずつです。過去の申請書の「最終日」から半年たっているか確認します。',en:'Requests are normally allowed once every 6 months, one pair of pants at a time. We count from the last day on your previous request form.'},
+  first:{ja:'はじめての申請です（前回の申請はありません）',en:'This is my first request (no previous request)'},
+  lastdate:{ja:'前回の申請書の最終日',en:'Last day on your previous request form'},
+  urgent:{ja:'制服が破れた・壊れた（緊急）',en:'My uniform is torn or broken (urgent)'},
+  urgent_note:{ja:'6か月たっていなくても、破れた・壊れた場合は申請できます。破損個所の写真を添付してください。写真がないと次へ進めません。',en:'If it is torn or broken you can apply before 6 months have passed. Attach a photo of the damaged part. You cannot continue without the photo.'},
+  urgent_ok:{ja:'6か月たっているので、写真は必要ありません。',en:'6 months have passed, so no photo is needed.'},
+  dup_h:{ja:'この社員番号は、同じ品目を6か月以内に申請済みです。',en:'This employee number already ordered the same item within the last 6 months.'},
+  dup_line:{ja:'・{n}（申請日 {d}／次に申請できる日 {x}）',en:'- {n} (ordered {d} / next possible {x})'},
+  dup_pants:{ja:'作業ズボン',en:'Work pants'},
+  dup_hint:{ja:'破れた・壊れた場合は、最初の画面で「緊急」にチェックして写真を添付してください。',en:'If it is torn or broken, go back to the first screen, tick “urgent” and attach a photo.'},
+  photo_label:{ja:'破損個所の写真を添付',en:'Attach a photo of the damaged part'},
+  photo_remove:{ja:'写真を削除',en:'Remove photo'},
+  photo_bad:{ja:'この画像は読み込めませんでした。別の写真を選んでください。',en:'This image could not be read. Choose another photo.'},
+  photo_need:{ja:'写真を添付してください。',en:'Attach a photo to continue.'},
+  photo_form:{ja:'緊急申請：破損個所の写真を添付しています。写真は確認用で、申請書には印刷されません。',en:'Urgent request: the photo of the damage is attached. It is for confirmation only and is not printed on the form.'},
+  photo_view:{ja:'写真を見る',en:'View photo'},
+  photo_close:{ja:'閉じる',en:'Close'},
+  wait_hint:{ja:'制服が破れた・壊れた場合は、下の「緊急」にチェックして写真を添付してください。',en:'If your uniform is torn or broken, tick "urgent" below and attach a photo.'},
+  sync_btn:{ja:'Googleスプレッドシートに送る',en:'Send to Google Sheet'},
+  sync_ok:{ja:'件をGoogleスプレッドシートに追加しました。',en:'rows added to the Google Sheet.'},
+  sync_off:{ja:'Googleスプレッドシートの設定がありません。READMEを見てください。',en:'Google Sheets is not set up. See the README.'},
+  sync_fail:{ja:'Googleスプレッドシートに送れませんでした。',en:'Could not send to the Google Sheet.'},
+  sv_busy:{ja:'アクセスが多すぎます。しばらくしてからもう一度お試しください。',en:'Too many requests. Please try again in a few minutes.'},
+  c_photo:{ja:'写真',en:'Photo'},
+  next:{ja:'次へ',en:'Next'},
+  back:{ja:'戻る',en:'Back'},
+  need_date:{ja:'前回の申請の最終日を入力するか、「はじめての申請」にチェックしてください。',en:'Enter the last day of your previous request, or tick "first request".'},
+  ok_elig:{ja:'6か月たっています。申請できます。',en:'6 months have passed. You can apply.'},
+  ok_first:{ja:'はじめての申請です。',en:'This is your first request.'},
+  wait:{ja:'まだ申請できません。次に申請できる日：',en:'You cannot apply yet. Next possible date: '},
+  future:{ja:'前回の日付が今日より先になっています。日付を確認してください。',en:'The previous date is in the future. Please check it.'},
+  q_h:{ja:'ルールを確認しましょう',en:"Let's check the rules"},
+  q_p:{ja:'6か月たっていても、全問正解するまで制服は申請できません。まず下のルールを読んでから答えてください。',en:'Even if 6 months have passed, you cannot request a uniform until you answer every question correctly. Read the rules first, then answer.'},
+  rules_h:{ja:'制服申請のルール',en:'Uniform request rules'},
+  submit_q:{ja:'答え合わせ',en:'Check answers'},
+  unanswered:{ja:'すべての質問に答えてください。',en:'Please answer every question.'},
+  wrong_n:{ja:'問、まちがいがあります。ルールを読んで、もう一度答えてください。',en:' answer(s) are wrong. Read the rules and try again.'},
+  retry:{ja:'もう一度',en:'Try again'},
+  pass:{ja:'全問正解です。申請書に進めます。',en:'All correct. You can go to the request form.'},
+  go_form:{ja:'申請書へ進む',en:'Go to the request form'},
+  f_h:{ja:'制服等支給申請書',en:'Uniform Request Form'},
+  f_p:{ja:'サイズと数量を入力してください。数量は各品目1つまでです。ズボンは1回の申請で1本までです。',en:'Enter the size and quantity. Quantity is limited to 1 per item. Pants are limited to 1 per request.'},
+  date:{ja:'申請日',en:'Request date'},
+  dept:{ja:'所属',en:'Department'},
+  dept_ph:{ja:'選んでください',en:'Select'},
+  dept_other:{ja:'その他（入力）',en:'Other (type it)'},
+  sv_ing:{ja:'スプレッドシートに保存しています…',en:'Saving to the spreadsheet…'},
+  sv_ok:{ja:'申請の内容を保存しました。',en:'Your request was saved.'},
+  sv_fail:{ja:'保存できませんでした。申請書は使えます。担当者に伝えてください。',en:'Could not save. The form still works. Tell the person in charge.'},
+  sv_off:{ja:'保存できません（ログインしていないか、権限がありません）。申請書は使えます。',en:'Cannot save (not signed in, or no permission). The form still works.'},
+  rec_btn:{ja:'管理（記録・名簿）',en:'Admin (records & list)'},
+  rec_h:{ja:'申請の記録',en:'Request records'},
+  rec_empty:{ja:'まだ記録がありません。',en:'No records yet.'},
+  rec_load:{ja:'読み込み中…',en:'Loading…'},
+  rec_off:{ja:'記録を読み込めません。',en:'Cannot load the records.'},
+  rec_csv:{ja:'CSVを保存（Excel用）',en:'Save CSV (for Excel)'},
+  rec_tsv:{ja:'表をコピー（スプレッドシートに貼り付け）',en:'Copy table (paste into a spreadsheet)'},
+  rec_back:{ja:'申請画面へ戻る',en:'Back to the request'},
+  rec_cnt:{ja:'件',en:' records'},
+  rec_dlfail:{ja:'保存できませんでした。「表をコピー」を使ってください。',en:'Could not save the file. Use "Copy table" instead.'},
+  c_saved:{ja:'保存日時',en:'Saved at'},c_date:{ja:'申請日',en:'Request date'},c_dept:{ja:'所属',en:'Department'},c_team:{ja:'チーム',en:'Team'},c_emp:{ja:'社員番号',en:'Employee no.'},c_name:{ja:'氏名',en:'Name'},c_kind:{ja:'種類',en:'Type'},c_urg:{ja:'緊急',en:'Urgent'},c_total:{ja:'合計金額',en:'Total'},
+  pass_h:{ja:'パスコードを入力',en:'Enter the passcode'},
+  pass_btn:{ja:'開く',en:'Open'},
+  pass_bad:{ja:'パスコードが違います。',en:'Wrong passcode.'},
+  tab_rec:{ja:'申請の記録',en:'Records'},
+  tab_ros:{ja:'社員名簿',en:'Employee list'},
+  ros_h:{ja:'社員名簿（社員番号と氏名）',en:'Employee list (number and name)'},
+  ros_p:{ja:'ここに登録した社員番号だけが申請できます。氏名は社員番号から自動で入ります。名簿が空のときは、誰でも自由に入力できます。',en:'Only employee numbers registered here can apply. The name is filled in from the number. While the list is empty, anyone can type freely.'},
+  ros_emp:{ja:'社員番号',en:'Employee number'},
+  ros_name:{ja:'氏名',en:'Name'},
+  ros_add:{ja:'追加',en:'Add'},
+  ros_bulk:{ja:'まとめて追加（1行に「社員番号 氏名」。スプレッドシートからの貼り付け可）',en:'Add many (one per line: "number name". You can paste from a spreadsheet)'},
+  ros_bulk_btn:{ja:'まとめて追加',en:'Add all'},
+  ros_none:{ja:'まだ登録がありません。',en:'Nobody is registered yet.'},
+  ros_del:{ja:'削除',en:'Delete'},
+  ros_cnt:{ja:'人',en:' people'},
+  ros_ok:{ja:'登録しました。',en:'Saved.'},
+  ros_fail:{ja:'登録できませんでした。',en:'Could not save.'},
+  ros_bad:{ja:'社員番号と氏名を入力してください。',en:'Enter both the number and the name.'},
+  e_notreg:{ja:'この社員番号は登録されていません。総務課に確認してください。',en:'This employee number is not registered. Ask General Affairs.'},
+  team:{ja:'チーム',en:'Team'},
+  e_team:{ja:'チームを選んでください。',en:'Select your team.'},
+  empno:{ja:'社員番号',en:'Employee number'},
+  e_dept:{ja:'所属を選んでください。',en:'Select your department.'},
+  e_empno:{ja:'社員番号を入力してください。',en:'Enter your employee number.'},
+  name:{ja:'氏名',en:'Full name'},
+  kind:{ja:'支給の種類',en:'Type of issue'},
+  k1:{ja:'①定期支給（支給年6月）',en:'① Regular issue (June each year)'},
+  k2:{ja:'②随時支給',en:'② As-needed issue'},
+  k2note:{ja:'緊急の場合は②を選びます。',en:'Choose ② for an urgent case.'},
+  th_item:{ja:'支給品目',en:'Item'},
+  th_price:{ja:'負担金額',en:'Your cost'},
+  th_model:{ja:'型番',en:'Model'},
+  th_size:{ja:'サイズ',en:'Size'},
+  th_qty:{ja:'数量',en:'Qty'},
+  th_amt:{ja:'金額',en:'Amount'},
+  free:{ja:'無償',en:'Free'},
+  pants_note:{ja:'ズボンは4種類のうち合計1本までです。',en:'Pants: 1 in total across the 4 types.'},
+  total:{ja:'合計金額',en:'Total'},
+  d1:{ja:'この制服はマスダで働く自分のためのものです。他の人に頼まれた申請ではありません。',en:'This uniform is for my own work at Masuda. I am not applying on behalf of anyone else.'},
+  d2:{ja:'制服代は給料から控除されることを理解しました。',en:'I understand the cost will be deducted from my salary.'},
+  d3:{ja:'サイズが不明な場合は、平沢さんに頼んで受け取り前に試着します。',en:'If I am unsure of my size, I will ask Hirasawa-san to let me try it on before I receive it.'},
+  make:{ja:'申請書を作成',en:'Create request form'},
+  e_name:{ja:'氏名を入力してください。',en:'Enter your name.'},
+  e_items:{ja:'数量を1つ以上選んでください。',en:'Choose at least one item.'},
+  e_size:{ja:'サイズを入力してください：',en:'Enter a size for: '},
+  e_decl:{ja:'3つの確認事項すべてにチェックしてください。',en:'Tick all three confirmations.'},
+  e_kind:{ja:'支給の種類を選んでください。',en:'Choose the type of issue.'},
+  e_ap:{ja:'前掛けのサイズ（小／大）を選んでください。',en:'Choose the apron size (S / L).'},
+  done_h:{ja:'申請書ができました',en:'Your request form is ready'},
+  done_p:{ja:'申請書は日本語で作成されます。ブラウザの印刷機能（Ctrl+P / ⌘P）で印刷し、平沢さんに提出してください。画面に印刷ボタンはありません。',en:'The form is written in Japanese. Print it with your browser (Ctrl+P / ⌘P) and hand it to Hirasawa-san. There is no print button on this page.'},
+  copy:{ja:'内容をコピー',en:'Copy contents'},
+  copied:{ja:'コピーしました',en:'Copied'},
+  edit:{ja:'入力に戻る',en:'Edit'},
+  restart:{ja:'最初からやり直す',en:'Start over'},
+  urgent_photo:{ja:'緊急申請：破損個所の写真を確認用に保存します（印刷はされません）。',en:'Urgent request: the photo is kept for confirmation only (it is not printed).'}
+};
+function t(k){ return (T[k]&&T[k][L]) || k; }
+
+var RULES = [
+  {ja:'制服の在庫は基本的に新入社員のためのものなので、頻繁には渡せません。',en:'The uniform stock is mainly for new employees, so we cannot hand them out often.'},
+  {ja:'会社が半額以上負担している貴重な制服です。',en:'The company pays half or more of the cost of these valuable uniforms.'},
+  {ja:'申請は基本的に6か月に1回、1本ずつ。過去の申請書の最終日から半年たっているか確認します。',en:'Requests are normally once every 6 months, one at a time. We check that half a year has passed since the last day on your previous form.'},
+  {ja:'破れた・壊れた場合などの緊急時は、6か月たっていなくても申請できます。破損個所の写真を添付します。',en:'In urgent cases, such as torn or broken clothing, you can apply before 6 months have passed. Attach a photo of the damage.'},
+  {ja:'制服代は給料から控除されます。',en:'The cost is deducted from your salary.'},
+  {ja:'マスダで働く人のための制服です。「IMOの先輩に頼まれた」などの申請は認めません。',en:'Uniforms are only for people working at Masuda. Requests such as "a senior from IMO asked me to" are not accepted.'},
+  {ja:'受け取り後のサイズ交換は手間がかかります。サイズが不明な場合は、平沢さんに頼んで受け取り前に試着させてもらいます。',en:'Changing sizes after receiving takes extra work. If you are unsure of your size, ask Hirasawa-san to let you try it on before you receive it.'}
+];
+
+/* each question: options[0] is the correct one; order is shuffled per attempt */
+var QUIZ = [
+  {q:{ja:'制服は何か月に1回、基本的に申請できますか？',en:'How often can you normally request a uniform?'},
+   o:[{ja:'6か月に1回',en:'Once every 6 months'},{ja:'毎月',en:'Every month'},{ja:'3か月に1回',en:'Once every 3 months'},{ja:'必要なときはいつでも',en:'Any time I want'}],
+   why:{ja:'基本は6か月に1回です。',en:'The normal limit is once every 6 months.'}},
+  {q:{ja:'1回の申請で、ズボンは何本までもらえますか？',en:'How many pairs of pants can you get in one request?'},
+   o:[{ja:'1本まで',en:'Up to 1'},{ja:'2本まで',en:'Up to 2'},{ja:'3本まで',en:'Up to 3'},{ja:'何本でも',en:'As many as I want'}],
+   why:{ja:'在庫の関係で、ズボンは1回の申請で1本までです。',en:'Because of stock, pants are limited to 1 per request.'}},
+  {q:{ja:'6か月がたったかどうかは、何を基準に確認しますか？',en:'What is the 6 months counted from?'},
+   o:[{ja:'過去の申請書の最終日',en:'The last day on your previous request form'},{ja:'入社した日',en:'The day you joined'},{ja:'制服を洗った日',en:'The day you washed the uniform'},{ja:'先輩に聞いた日',en:'The day you asked a senior'}],
+   why:{ja:'過去の申請書の最終日から半年たっているか確認します。',en:'We check from the last day on your previous request form.'}},
+  {q:{ja:'制服が破れて、すぐに必要になりました。どうしますか？',en:'Your uniform is torn and you need a new one now. What do you do?'},
+   o:[{ja:'「緊急」にチェックして、破損個所の写真を添付する',en:'Tick \u201curgent\u201d and attach a photo of the damage'},{ja:'何も言わずに倉庫から持っていく',en:'Take one from the storeroom without telling anyone'},{ja:'6か月待つ',en:'Wait 6 months'},{ja:'友達の制服を借りる',en:'Borrow a friend’s uniform'}],
+   why:{ja:'緊急時は対応可能です。破損個所の写真を添付します。',en:'Urgent cases are possible. Attach a photo of the damage.'}},
+  {q:{ja:'制服代はどうなりますか？',en:'What happens to the cost of the uniform?'},
+   o:[{ja:'給料から控除される',en:'It is deducted from my salary'},{ja:'全部会社が払う',en:'The company pays everything'},{ja:'何も払わなくてよい',en:'I pay nothing'},{ja:'後で現金で払う',en:'I pay later in cash'}],
+   why:{ja:'会社が半額以上を負担しますが、残りは給料から控除されます。',en:'The company pays half or more; the rest is deducted from your salary.'}},
+  {q:{ja:'「IMOの先輩に頼まれたので、制服がほしい」という申請はできますか？',en:'Can you request a uniform because "a senior from IMO asked me to"?'},
+   o:[{ja:'できない。マスダで働く人のための制服だから',en:'No. Uniforms are only for people working at Masuda'},{ja:'できる',en:'Yes'},{ja:'1回だけならできる',en:'Yes, just once'},{ja:'先輩の分も一緒ならできる',en:'Yes, if I include theirs'}],
+   why:{ja:'マスダで働く人のための制服です。そのような申請は認められません。',en:'Uniforms are only for people working at Masuda. Such requests are not accepted.'}},
+  {q:{ja:'自分のサイズがわかりません。どうしますか？',en:'You do not know your size. What do you do?'},
+   o:[{ja:'平沢さんに頼んで、受け取り前に試着する',en:'Ask Hirasawa-san and try it on before receiving'},{ja:'適当に選んで、後で何度も交換する',en:'Guess, then exchange it many times later'},{ja:'大きめを選ぶ',en:'Just pick a bigger size'},{ja:'空欄で出す',en:'Leave it blank'}],
+   why:{ja:'受け取り後の頻繁なサイズ交換は手間がかかります。受け取り前に試着させてもらいます。',en:'Frequent size changes after receiving take a lot of work. Try it on before receiving.'}},
+  {q:{ja:'なぜ頻繁には制服を渡せないのですか？',en:'Why can uniforms not be handed out often?'},
+   o:[{ja:'在庫は基本的に新入社員のためのものだから',en:'The stock is mainly for new employees'},{ja:'制服が嫌いだから',en:'Nobody likes uniforms'},{ja:'値段が高すぎて売れないから',en:'They are too expensive to sell'},{ja:'特に理由はない',en:'There is no reason'}],
+   why:{ja:'在庫は基本的に新入社員のためのものです。',en:'The stock is mainly for new employees.'}}
+];
+
+/* keep only 3 questions: frequency, pants limit, "asked by a senior" */
+QUIZ = [QUIZ[0], QUIZ[1], QUIZ[5]];
+
+/* [ja, en, price(null=free), model, group] ; pants group = 'p' */
+var ITEMS = [
+  ['作業着（ジャケット）','Work jacket',2337,'8116'],
+  ['作業ズボン（男性ストレッチタイプ）','Work pants (men, stretch)',2115,'84614','p'],
+  ['作業ズボン（女性ストレッチタイプ）','Work pants (women, stretch)',2115,'846141','p'],
+  ['作業ズボン（男性ゆったりタイプ）','Work pants (men, loose fit)',2115,'6114','p'],
+  ['作業ズボン（女性ゆったりタイプ）','Work pants (women, loose fit)',2115,'61141','p'],
+  ['ポロシャツ','Polo shirt',1595,'81355'],
+  ['作業帽子','Work cap',767,''],
+  ['帯電防止　キャップ','Anti-static cap',275,''],
+  ['上履き（ニュークリア―）','Indoor shoes (Nuclear)',1350,''],
+  ['帯電防止　上履き（エレパス）','Anti-static indoor shoes (Elepas)',750,'PS-01S'],
+  ['安全靴（SPIDERMAX ）','Safety shoes (SPIDERMAX)',2024,'#6000'],
+  ['安全靴（シートメタル）','Safety shoes (Sheet Metal)',1732,'MPV-1'],
+  ['熱場作業用安全靴（シートメタル）','Heat-work safety shoes (Sheet Metal)',4290,'RT4009'],
+  ['前掛け','Apron',null,'','a']
+];
+
+var DEPTS=['製造1課','製造2課','製造3課','生産技術課','品質保証','生産管理課','シートメタル','とうふ工房','総務課','製品管理課'];
+
+var TEAMS={'製造1課':['MCチーム','汎用チーム'],'製造2課':['Fチーム','ろう付けチーム','組み立てチーム'],'製造3課':['CNCチーム','LNCチーム','特殊工程チーム']};
+
+/* ---------- server API ---------- */
+var CANREAD=true;
+var ADMTOKEN='';
+function api(method,url,body){
+  return new Promise(function(resolve,reject){
+    if(url==='/api/admin/logout') ADMTOKEN='';
+    google.script.run
+      .withSuccessHandler(function(r){
+        var o; try{ o=JSON.parse(r); }catch(e){ o={status:500,body:{}}; }
+        if(o.status>=400){ var e=new Error((o.body&&o.body.error)||'error'); e.status=o.status; e.data=o.body; reject(e); return; }
+        if(url==='/api/admin/login'&&o.body.token) ADMTOKEN=o.body.token;
+        resolve(o.body);
+      })
+      .withFailureHandler(function(m){ var e=new Error(String(m&&m.message||m)); e.status=500; reject(e); })
+      .apiCall(method,url,body?JSON.stringify(body):'',ADMTOKEN);
+  });
+}
+var UNLOCKED=false, PASSERR=false, TAB='rec', RIN={empno:'',name:'',bulk:''}, RMSG='';
+var ROSTDOCS=[], PHOTOVIEW='', ROSTERON=false;
+function empNorm(e){var x=String(e||'').trim(); try{x=x.normalize('NFKC');}catch(_){} return x.replace(/\s+/g,'');}
+function empKey(e){ return empNorm(e); }
+function rosterOn(){ return ROSTERON; }
+api('GET','/api/config').then(function(c){ ROSTERON=!!c.rosterOn; }).catch(function(){});
+
+var EN={'製造1課':'Manufacturing Section 1','製造2課':'Manufacturing Section 2','製造3課':'Manufacturing Section 3','生産技術課':'Production Engineering','品質保証':'Quality Assurance','生産管理課':'Production Control','シートメタル':'Sheet Metal','とうふ工房':'Tofu Workshop','総務課':'General Affairs','製品管理課':'Product Management',
+  'MCチーム':'MC Team','汎用チーム':'General-purpose Team','Fチーム':'F Team','ろう付けチーム':'Brazing Team','組み立てチーム':'Assembly Team','CNCチーム':'CNC Team','LNCチーム':'LNC Team','特殊工程チーム':'Special Process Team'};
+function nm(x){ return (L==='en'&&EN[x])?EN[x]+' ('+x+')':x; }
+
+/* ---------- state ---------- */
+var S = { step:1, view:'', save:'', docId:'', records:null, rerr:'', first:false, last:'', urgent:false, photo:'', photoErr:'',
+  answers:{}, order:null, checked:false, passed:false,
+  f:{date:'',dept:'',team:'',deptOther:'',empno:'',name:'',nameLocked:false,kind:'',qty:{},size:{},d1:false,d2:false,d3:false}, made:false, err:'' };
+var $app = document.getElementById('app');
+
+function pad(n){return n<10?'0'+n:''+n;}
+function iso(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function today(){var d=new Date();d.setHours(0,0,0,0);return d;}
+function parseISO(s){var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s||'');return m?new Date(+m[1],+m[2]-1,+m[3]):null;}
+function addMonths(d,n){var y=d.getFullYear(),m=d.getMonth()+n,day=d.getDate();var last=new Date(y,m+1,0).getDate();return new Date(y,m,Math.min(day,last));}
+function fmtDate(d,lang){return lang==='ja'?d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日':d.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function yen(n){return '¥'+n.toLocaleString('en-US');}
+S.f.date = iso(today());
+
+function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var x=a[i];a[i]=a[j];a[j]=x;}return a;}
+function newOrder(){S.order=QUIZ.map(function(q){return shuffle(q.o.map(function(_,i){return i;}));});S.answers={};S.checked=false;}
+
+/* eligibility: returns {ok, msgKey, next} */
+function baseElig(){
+  if(S.first) return {ok:true, kind:'first'};
+  var d=parseISO(S.last);
+  if(!d) return {ok:false, kind:'need'};
+  if(d>today()) return {ok:false, kind:'future'};
+  var nx=addMonths(d,6);
+  if(nx<=today()) return {ok:true, kind:'six'};
+  return {ok:false, kind:'wait', next:nx};
+}
+/* urgent (torn / broken) can skip the 6-month wait, but only with a photo */
+function needPhoto(){ return S.urgent && !baseElig().ok && baseElig().kind!=='future'; }
+function eligibility(){
+  var b=baseElig();
+  if(b.ok) return b;
+  if(needPhoto()) return {ok:!!S.photo, kind:S.photo?'urgent':'photo'};
+  return b;
+}
+function processPhoto(file){
+  if(!file) return;
+  var rd=new FileReader();
+  rd.onerror=function(){ S.photoErr=t('photo_bad'); refreshStep1(); };
+  rd.onload=function(){
+    var img=new Image();
+    img.onerror=function(){ S.photoErr=t('photo_bad'); refreshStep1(); };
+    img.onload=function(){
+      var out='', sizes=[1000,800,600];
+      for(var si=0;si<sizes.length&&!out;si++){
+        var sc=Math.min(1,sizes[si]/Math.max(img.width,img.height));
+        var c=document.createElement('canvas'); c.width=Math.max(1,Math.round(img.width*sc)); c.height=Math.max(1,Math.round(img.height*sc));
+        c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+        for(var q=0.72;q>=0.35;q-=0.1){ var u=c.toDataURL('image/jpeg',q); if(u.length<=170000){ out=u; break; } }
+      }
+      if(!out){ S.photoErr=t('photo_bad'); } else { S.photo=out; S.photoErr=''; }
+      refreshStep1();
+    };
+    img.src=rd.result;
+  };
+  rd.readAsDataURL(file);
+}
+
+/* ---------- render ---------- */
+function recBtnHTML(){return '<button class="btn ghost" id="rec" type="button">'+t('rec_btn')+'</button>';}
+function header(){
+  return '<header class="no-print"><h1>'+t('title')+'<small>'+t('subtitle')+'</small></h1>'+
+    '<div id="hdrgrp" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+(CANREAD?recBtnHTML():'')+
+    '<div class="lang" role="group" aria-label="Language">'+
+    '<button type="button" data-lang="ja" aria-pressed="'+(L==='ja')+'">日本語</button>'+
+    '<button type="button" data-lang="en" aria-pressed="'+(L==='en')+'">English</button></div></div></header>'+
+    (S.view==='records'?'':'<ol class="steps no-print">'+[1,2,3].map(function(n){
+      var c=S.step===n?'on':(S.step>n?'done':'');
+      return '<li class="'+c+'">'+n+'. '+t('s'+n)+'</li>';}).join('')+'</ol>');
+}
+
+function renderStep1(){
+  var e=eligibility(), b=baseElig(), msg='', photoBlock='';
+  if(S.err==='need') msg='<div class="msg bad" role="alert">'+t('need_date')+'</div>';
+  else if(S.first||S.last||S.urgent){
+    if(b.kind==='wait'&&!S.urgent) msg='<div class="msg bad" role="status">'+t('wait')+'<strong>'+fmtDate(b.next,L)+'</strong></div><div class="muted">'+t('wait_hint')+'</div>';
+    else if(b.kind==='future') msg='<div class="msg bad" role="status">'+t('future')+'</div>';
+    else if(b.kind==='first') msg='<div class="msg ok" role="status">'+t('ok_first')+'</div>';
+    else if(b.kind==='six') msg='<div class="msg ok" role="status">'+t('ok_elig')+'</div>'+(S.urgent?'<div class="muted">'+t('urgent_ok')+'</div>':'');
+  }
+  if(needPhoto()){
+    msg='<div class="msg warn" role="status">'+t('urgent_note')+'</div>';
+    photoBlock='<div class="field"><label for="photo">'+t('photo_label')+'</label><input type="file" id="photo" accept="image/*">'+
+      (S.photoErr?'<div class="msg bad" role="alert">'+S.photoErr+'</div>':'')+
+      (S.photo?'<img src="'+S.photo+'" alt="" style="max-width:240px;max-height:200px;border-radius:6px;border:1px solid var(--line)"><div class="actions"><button class="btn ghost" id="photodel" type="button">'+t('photo_remove')+'</button></div>':'<div class="muted">'+t('photo_need')+'</div>')+'</div>';
+  }
+  return '<section class="card"><div><h2>'+t('e_h')+'</h2><div class="muted">'+t('e_p')+'</div></div>'+
+    '<label class="check"><input type="checkbox" id="first"'+(S.first?' checked':'')+'><span>'+t('first')+'</span></label>'+
+    '<div class="field"><label for="last">'+t('lastdate')+'</label><input type="date" id="last" value="'+esc(S.last)+'"'+(S.first?' disabled':'')+'></div>'+
+    '<label class="check"><input type="checkbox" id="urgent"'+(S.urgent?' checked':'')+'><span>'+t('urgent')+'</span></label>'+
+    photoBlock+
+    '<div id="emsg">'+msg+'</div>'+
+    '<div class="actions"><button class="btn" id="to2" type="button"'+(e.ok?'':' disabled')+'>'+t('next')+'</button></div></section>';
+}
+
+function renderStep2(){
+  if(!S.order) newOrder();
+  var res = S.checked ? checkQuiz() : null;
+  var h='<section class="card"><div><h2>'+t('q_h')+'</h2><div class="muted">'+t('q_p')+'</div></div>'+
+    '<div><strong>'+t('rules_h')+'</strong><ul class="rules">'+RULES.map(function(r){return '<li>'+esc(r[L])+'</li>';}).join('')+'</ul></div></section>'+
+    '<section class="card">';
+  QUIZ.forEach(function(q,qi){
+    var cls='q', why='';
+    if(res){ var ok=res.ok[qi]; cls+= ok?' right':' wrong'; if(!ok&&S.answers[qi]!==undefined) why='<div class="why">'+esc(q.why[L])+'</div>'; }
+    h+='<fieldset class="'+cls+'" style="border:0;margin:0;padding:'+(qi?'14px':'0')+' 0 0"><legend class="qt" style="padding:0;font-weight:700">'+(qi+1)+'. '+esc(q.q[L])+'</legend>';
+    S.order[qi].forEach(function(oi){
+      h+='<label class="opt"><input type="radio" name="q'+qi+'" value="'+oi+'"'+(S.answers[qi]===oi?' checked':'')+(res&&res.pass?' disabled':'')+'><span>'+esc(q.o[oi][L])+'</span></label>';
+    });
+    h+=why+'</fieldset>';
+  });
+  var foot='';
+  if(res){
+    if(res.pass) foot='<div class="msg ok" role="status">'+t('pass')+'</div><div class="actions"><button class="btn" id="to3" type="button">'+t('go_form')+'</button></div>';
+    else if(res.missing) foot='<div class="msg bad" role="alert">'+t('unanswered')+'</div>';
+    else foot='<div class="msg bad" role="alert">'+res.wrong+t('wrong_n')+'</div><div class="actions"><button class="btn" id="retry" type="button">'+t('retry')+'</button></div>';
+  }
+  if(!res || res.missing) foot+= '<div class="actions"><button class="btn" id="check" type="button">'+t('submit_q')+'</button></div>';
+  h+=foot+'<div class="actions"><button class="btn ghost" id="to1" type="button">'+t('back')+'</button></div></section>';
+  return h;
+}
+
+function checkQuiz(){
+  var ok=[],wrong=0,missing=false;
+  QUIZ.forEach(function(q,qi){
+    var a=S.answers[qi];
+    if(a===undefined){missing=true;ok.push(false);return;}
+    var good=(a===0); ok.push(good); if(!good) wrong++;
+  });
+  return {ok:ok,wrong:wrong,missing:missing,pass:!missing&&wrong===0};
+}
+
+function deptVal(){return S.f.dept==='__other'?(S.f.deptOther||'').trim():S.f.dept;}
+function deptFull(){var d=deptVal();return S.f.team&&TEAMS[S.f.dept]?d+'　'+S.f.team:d;}
+function itemKey(i){ return ITEMS[i][4]==='p'?'pants':'i'+(i+1); }
+function pantsCount(){var n=0;ITEMS.forEach(function(it,i){if(it[4]==='p')n+=(S.f.qty[i]||0);});return n;}
+function lineAmt(i){var it=ITEMS[i];return it[2]===null?0:it[2]*(S.f.qty[i]||0);}
+function totalAmt(){var s=0;ITEMS.forEach(function(_,i){s+=lineAmt(i);});return s;}
+
+function renderStep3(){
+  if(S.made) return renderSheet();
+  var f=S.f;
+  var rows=ITEMS.map(function(it,i){
+    var q=f.qty[i]||0, max=1, opts='';
+    for(var n=0;n<=max;n++) opts+='<option value="'+n+'"'+(q===n?' selected':'')+'>'+n+'</option>';
+    var sizeCell = it[4]==='a'
+      ? '<select id="size'+i+'" data-size="'+i+'" aria-label="'+t('th_size')+'"><option value="">—</option><option value="小"'+(f.size[i]==='小'?' selected':'')+'>小 / S</option><option value="大"'+(f.size[i]==='大'?' selected':'')+'>大 / L</option></select>'
+      : '<input class="size" type="text" id="size'+i+'" data-size="'+i+'" value="'+esc(f.size[i]||'')+'" aria-label="'+t('th_size')+'">';
+    return '<tr><td>'+(i+1)+'</td><td>'+esc(it[L==='ja'?0:1])+(L==='en'?'<span class="sub">'+esc(it[0])+'</span>':'')+'</td>'+
+      '<td class="n">'+(it[2]===null?t('free'):yen(it[2]))+'</td><td>'+esc(it[3])+'</td><td>'+sizeCell+'</td>'+
+      '<td><select class="qty" id="qty'+i+'" data-qty="'+i+'" aria-label="'+t('th_qty')+'">'+opts+'</select></td>'+
+      '<td class="n" id="amt'+i+'">'+(it[2]===null?'—':yen(lineAmt(i)))+'</td></tr>';
+  }).join('');
+  return '<section class="card"><div><h2>'+t('f_h')+'</h2><div class="muted">'+t('f_p')+'</div></div>'+
+    (needPhoto()&&S.photo?'<div class="msg warn">'+t('photo_form')+'<br><img src="'+S.photo+'" alt="" style="max-width:160px;max-height:120px;margin-top:6px;border-radius:4px"></div>':'')+
+    '<div class="row"><div class="field"><label for="date">'+t('date')+'</label><input type="date" id="date" value="'+esc(f.date)+'"></div>'+
+    '<div class="field"><label for="dept">'+t('dept')+'</label><select id="dept"><option value="">'+t('dept_ph')+'</option>'+DEPTS.map(function(d){return '<option value="'+d+'"'+(f.dept===d?' selected':'')+'>'+esc(nm(d))+'</option>';}).join('')+'<option value="__other"'+(f.dept==='__other'?' selected':'')+'>'+t('dept_other')+'</option></select>'+(f.dept==='__other'?'<input type="text" id="deptOther" value="'+esc(f.deptOther)+'" aria-label="'+t('dept_other')+'">':'')+'</div>'+
+    (TEAMS[f.dept]?'<div class="field" id="teamfield"><label for="team">'+t('team')+'</label><select id="team"><option value="">'+t('dept_ph')+'</option>'+(TEAMS[f.dept]||[]).map(function(x){return '<option value="'+x+'"'+(f.team===x?' selected':'')+'>'+esc(nm(x))+'</option>';}).join('')+'</select></div>':'')+
+    '<div class="field"><label for="empno">'+t('empno')+'</label><input type="text" id="empno" inputmode="numeric" value="'+esc(f.empno)+'" autocomplete="off"></div>'+
+    '<div class="field"><label for="name">'+t('name')+'</label><input type="text" id="name" value="'+esc(f.name)+'" autocomplete="name"'+(f.nameLocked?' readonly':'')+'></div></div>'+
+    '<fieldset style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:6px"><legend style="padding:0;font-weight:500;font-size:.9rem">'+t('kind')+'</legend>'+
+    '<label class="check"><input type="radio" name="kind" value="1"'+(f.kind==='1'?' checked':'')+'><span>'+t('k1')+'</span></label>'+
+    '<label class="check"><input type="radio" name="kind" value="2"'+(f.kind==='2'?' checked':'')+'><span>'+t('k2')+(needPhoto()?' <span class="muted">('+t('k2note')+')</span>':'')+'</span></label></fieldset>'+
+    '<div class="muted">'+t('pants_note')+'</div>'+
+    '<div class="tablewrap"><table class="items"><thead><tr><th>#</th><th>'+t('th_item')+'</th><th>'+t('th_price')+'</th><th>'+t('th_model')+'</th><th>'+t('th_size')+'</th><th>'+t('th_qty')+'</th><th>'+t('th_amt')+'</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+    '<div class="total"><span>'+t('total')+'</span><span class="v" id="total">'+yen(totalAmt())+'</span></div>'+
+    ['d1','d2','d3'].map(function(k){return '<label class="check"><input type="checkbox" data-decl="'+k+'"'+(f[k]?' checked':'')+'><span>'+t(k)+'</span></label>';}).join('')+
+    '<div id="ferr">'+(S.err&&S.err!=='need'?'<div class="msg bad" role="alert">'+esc(S.err).replace(/\n/g,'<br>')+'</div>':'')+'</div>'+
+    '<div class="actions"><button class="btn" id="make" type="button">'+t('make')+'</button><button class="btn ghost" id="to2b" type="button">'+t('back')+'</button></div></section>';
+}
+
+function sheetHTML(){
+  var f=S.f, d=parseISO(f.date)||today();
+  var rows=ITEMS.map(function(it,i){
+    var q=f.qty[i]||0;
+    var amt = it[2]===null ? '' : (q? it[2]*q : '');
+    var priceCell = it[2]===null ? '無償' : it[2].toLocaleString('en-US');
+    return '<tr><td class="c">'+(i+1)+'</td><td>'+esc(it[0])+'</td><td class="n">'+priceCell+'</td><td>'+esc(it[3])+'</td><td class="c">'+esc(q?(f.size[i]||''):'')+'</td><td class="c">'+(q||'')+'</td><td class="n">'+(amt===''?'':amt.toLocaleString('en-US'))+'</td></tr>';
+  }).join('');
+  return '<div class="sheet"><h3>制服等支給申請書</h3><div class="meta">'+
+    '<div>申請日　'+d.getFullYear()+'年 '+(d.getMonth()+1)+'月 '+d.getDate()+'日</div>'+
+    '<div>所属　　'+esc(deptFull())+'</div><div>社員番号　'+esc(empNorm(f.empno))+'</div><div>氏名　　'+esc(f.name)+'</div></div>'+
+    '<div style="font-size:12px">※該当する方に〇を付けてください。</div>'+
+    '<div style="margin:2px 0 8px">'+(f.kind==='1'?'<span class="circ">①定期支給（支給年6月）</span>':'①定期支給（支給年6月）')+'　／　'+(f.kind==='2'?'<span class="circ">②随時支給</span>':'②随時支給')+'</div>'+
+    '<table><thead><tr><th colspan="2">支給品目</th><th>(負担金額)</th><th>型番</th><th>サイズ</th><th>数量</th><th>金額</th></tr></thead><tbody>'+rows+
+    '<tr class="sumrow"><td colspan="6" class="c">合　計　金　額</td><td class="n">'+totalAmt().toLocaleString('en-US')+'</td></tr></tbody></table>'+
+       '<div class="office"><div>※ 総務課使用欄</div><div></div><div>支給担当</div><div>給与担当</div></div>'+
+    '<div class="office" style="border-top:0;grid-template-columns:2fr 1fr 1fr 1fr"><div></div><div></div><div></div><div>控除額</div></div></div>';
+}
+
+function sheetText(){
+  var f=S.f,d=parseISO(f.date)||today();
+  var lines=['制服等支給申請書','申請日: '+fmtDate(d,'ja'),'所属: '+deptFull(),'社員番号: '+empNorm(f.empno),'氏名: '+f.name,'種類: '+(f.kind==='1'?'①定期支給（支給年6月）':'②随時支給')];
+  ITEMS.forEach(function(it,i){var q=f.qty[i]||0;if(q)lines.push('- '+it[0]+(it[3]?' ['+it[3]+']':'')+' サイズ:'+(f.size[i]||'')+' 数量:'+q+(it[2]===null?' 無償':' 金額:'+(it[2]*q)+'円'));});
+  lines.push('合計金額: '+totalAmt()+'円');
+  if(needPhoto()) lines.push('※緊急申請（破損個所の写真を添付）');
+  return lines.join('\n');
+}
+
+function renderSheet(){
+  return '<section class="card no-print"><div><h2><span class="ok-badge">✓</span> '+t('done_h')+'</h2><div class="muted">'+t('done_p')+'</div></div>'+
+    '<div id="savemsg">'+saveHTML()+'</div>'+
+    (needPhoto()&&S.photo?'<div class="msg warn">'+t('urgent_photo')+'</div>':'')+
+    '<div class="actions"><button class="btn" id="copy" type="button">'+t('copy')+'</button><button class="btn ghost" id="edit" type="button">'+t('edit')+'</button><button class="btn ghost" id="restart" type="button">'+t('restart')+'</button></div></section>'+
+    '<div class="sheetwrap">'+sheetHTML()+'</div>';
+}
+
+function render(){
+  var body = S.view==='records'?renderRecords():S.step===1?renderStep1():S.step===2?renderStep2():renderStep3();
+  $app.innerHTML = header()+body;
+  document.documentElement.lang = L;
+}
+
+/* ---------- events ---------- */
+function refreshStep1(){
+  var keep={a:document.activeElement&&document.activeElement.id};
+  render(); var el=keep.a&&document.getElementById(keep.a); if(el&&el.focus) el.focus();
+}
+$app.addEventListener('click',function(ev){
+  var b=ev.target.closest('button'); if(!b) return;
+  if(b.dataset.lang){L=b.dataset.lang;render();return;}
+  var id=b.id;
+  if(id==='to2'){var e=eligibility(); if(e.ok){S.step=2;S.err='';render();} else {S.err=(e.kind==='need')?'need':'';render();} }
+  else if(id==='photodel'){ S.photo=''; S.photoErr=''; render(); }
+  else if(id==='to1'){S.step=1;render();}
+  else if(id==='check'){ S.checked=true; render(); }
+  else if(id==='retry'){ newOrder(); render(); window.scrollTo(0,0); }
+  else if(id==='to3'){ S.passed=true; S.step=3; S.err=''; if(needPhoto()&&!S.f.kind)S.f.kind='2'; render(); window.scrollTo(0,0); }
+  else if(id==='to2b'){ S.step=2; render(); }
+  else if(id==='make'){ makeForm(); }
+  else if(id==='edit'){ S.made=false; render(); }
+  else if(id==='restart'){ var d=iso(today()); S={step:1,view:'',save:'',docId:'',records:null,rerr:'',first:false,last:'',urgent:false,photo:'',photoErr:'',answers:{},order:null,checked:false,passed:false,f:{date:d,dept:'',team:'',deptOther:'',empno:'',name:'',kind:'',qty:{},size:{},d1:false,d2:false,d3:false},made:false,err:''}; render(); window.scrollTo(0,0); }
+  else if(id==='copy'){ copyText(b); }
+  else if(id==='rec'){ openRecords(); }
+  else if(id==='recback'){ api('POST','/api/admin/logout').catch(function(){}); S.view=''; UNLOCKED=false; PHOTOVIEW=''; PASSERR=false; render(); }
+  else if(id==='unlock'){ tryUnlock(); }
+  else if(id==='photoclose'){ PHOTOVIEW=''; render(); }
+  else if(b.dataset.photo){ showPhoto(b.dataset.photo); }
+  else if(id==='tabrec'){ TAB='rec'; render(); }
+  else if(id==='tabros'){ TAB='ros'; RMSG=''; render(); }
+  else if(id==='rosadd'){ rosterAdd(); }
+  else if(id==='rosbulk'){ rosterBulk(); }
+  else if(b.dataset.del){ rosterDel(b.dataset.del); }
+  else if(id==='csv'){ saveCSV(); }
+  else if(id==='gsync'){ syncSheets(); }
+  else if(id==='tsv'){ copyMatrix(b); }
+});
+$app.addEventListener('change',function(ev){
+  var el=ev.target;
+  if(el.id==='first'){S.first=el.checked; if(el.checked)S.last=''; S.err=''; refreshStep1();}
+  else if(el.id==='last'){S.last=el.value; S.err=''; refreshStep1();}
+  else if(el.id==='photo'){ processPhoto(el.files&&el.files[0]); }
+  else if(el.id==='urgent'){S.urgent=el.checked; S.err=''; if(el.checked&&!S.f.kind)S.f.kind='2'; refreshStep1();}
+  else if(el.name&&/^q\d+$/.test(el.name)){ S.answers[+el.name.slice(1)]=+el.value; if(S.checked){S.checked=false;render();} }
+  else if(el.dataset&&el.dataset.qty!==undefined){ setQty(+el.dataset.qty, +el.value); }
+  else if(el.name==='kind'){ S.f.kind=el.value; }
+  else if(el.dataset&&el.dataset.size!==undefined){ S.f.size[+el.dataset.size]=el.value; }
+  else if(el.dataset&&el.dataset.decl){ S.f[el.dataset.decl]=el.checked; }
+  else if(el.id==='date'){ S.f.date=el.value; }
+  else if(el.id==='team'){ S.f.team=el.value; }
+  else if(el.id==='empno'){ S.f.empno=el.value; lookupEmp(); }
+  else if(el.id==='dept'){ S.f.dept=el.value; S.f.team=''; render(); var o=document.getElementById(el.value==='__other'?'deptOther':'dept'); if(o)o.focus(); }
+});
+$app.addEventListener('input',function(ev){
+  var el=ev.target;
+  if(el.id==='rin_emp') RIN.empno=el.value;
+  else if(el.id==='rin_name') RIN.name=el.value;
+  else if(el.id==='rin_bulk') RIN.bulk=el.value;
+  else if(el.id==='deptOther') S.f.deptOther=el.value;
+  else if(el.id==='empno'){ S.f.empno=el.value; if(S.f.nameLocked){S.f.nameLocked=false; var nn=document.getElementById('name'); if(nn) nn.readOnly=false;} }
+  else if(el.id==='name') S.f.name=el.value;
+  else if(el.dataset&&el.dataset.size!==undefined) S.f.size[+el.dataset.size]=el.value;
+});
+
+/* Enter key = go to the next step */
+document.addEventListener('keydown',function(ev){
+  if(ev.key!=='Enter'||ev.isComposing||ev.keyCode===229) return;
+  if(S.view==='records'){ var tid=ev.target&&ev.target.id; if(tid==='pass'){ev.preventDefault();tryUnlock();} else if(tid==='rin_emp'||tid==='rin_name'){ev.preventDefault();rosterAdd();} return; }
+  var tg=ev.target, tag=tg&&tg.tagName;
+  /* step 3: Enter moves to the next field; Enter on the last field creates the form */
+  if(S.step===3&&!S.made&&(tag==='INPUT'||tag==='SELECT')){
+    var all=[].slice.call($app.querySelectorAll('input,select')).filter(function(e){
+      if(e.disabled||e.type==='hidden') return false;
+      if(e.type==='radio'){ var g=$app.querySelectorAll('input[name="'+e.name+'"]'); return g[0]===e; }
+      return true; });
+    var cur=tg; if(tg.type==='radio'){ cur=$app.querySelector('input[name="'+tg.name+'"]'); }
+    var ix=all.indexOf(cur); ev.preventDefault();
+    if(ix>=0&&ix<all.length-1){ var nx=all[ix+1]; nx.focus(); if(nx.select&&/^(text|date)$/.test(nx.type)) { try{nx.select();}catch(e){} } }
+    else { var mk=document.getElementById('make'); if(mk) mk.click(); }
+    return;
+  }
+  if(tag==='BUTTON'||tag==='SELECT'||tag==='TEXTAREA'||tag==='A') return;
+  var id = S.step===1 ? 'to2'
+    : S.step===2 ? (document.getElementById('to3')?'to3':document.getElementById('retry')?'retry':'check')
+    : (S.made ? null : 'make');
+  var b = id && document.getElementById(id);
+  if(b && !b.disabled){ ev.preventDefault(); b.click(); }
+});
+
+function setQty(i,n){
+  var it=ITEMS[i];
+  if(it[4]==='p' && n>0){ /* only one pair of pants in total */
+    ITEMS.forEach(function(o,j){ if(o[4]==='p' && j!==i){ S.f.qty[j]=0; var s=document.getElementById('qty'+j); if(s) s.value='0'; } });
+  }
+  S.f.qty[i]=n;
+  ITEMS.forEach(function(o,j){ var c=document.getElementById('amt'+j); if(c) c.textContent = o[2]===null?'—':yen(lineAmt(j)); });
+  var tt=document.getElementById('total'); if(tt) tt.textContent=yen(totalAmt());
+}
+
+function saveHTML(){
+  if(S.save==='ing') return '<div class="muted">'+t('sv_ing')+'</div>';
+  if(S.save==='ok') return '<div class="msg ok" role="status">'+t('sv_ok')+'</div>';
+  if(S.save==='fail') return '<div class="msg warn" role="status">'+t('sv_fail')+'</div>';
+  if(S.save==='off') return '<div class="msg warn" role="status">'+t('sv_off')+'</div>';
+  return '';
+}
+function setSave(v){ S.save=v; var el=document.getElementById('savemsg'); if(el) el.innerHTML=saveHTML(); }
+
+/* the server saves the request, checks the 6-month rule and the employee list */
+function postRequest(){
+  var f=S.f, items={};
+  ITEMS.forEach(function(it,i){ var q=f.qty[i]||0; items['i'+(i+1)]=q?((f.size[i]||'')+'×'+q):''; });
+  if(!S.docId) S.docId=Date.now().toString(36)+Math.random().toString(36).slice(2,9);
+  return api('POST','/api/requests',{docId:S.docId,date:f.date,dept:deptVal(),team:f.team||'',empno:empNorm(f.empno),name:f.name.trim(),
+    kind:f.kind==='1'?'定期':'随時',urgent:needPhoto(),items:items,photo:(needPhoto()&&S.photo)?S.photo:''});
+}
+function dupMessage(hits){
+  var lines=hits.map(function(h){
+    var nm=h.key==='pants'?t('dup_pants'):ITEMS[parseInt(h.key.slice(1),10)-1][L==='ja'?0:1];
+    return t('dup_line').replace('{n}',nm).replace('{d}',fmtDate(new Date(h.at),L)).replace('{x}',fmtDate(new Date(h.next),L));
+  });
+  return t('dup_h')+'\n'+lines.join('\n')+'\n'+t('dup_hint');
+}
+
+/* ---------- records (admins only) ---------- */
+function recRows(){ return (S.records||[]).slice(); }
+function recHead(){
+  var h=[t('c_saved'),t('c_date'),t('c_dept'),t('c_team'),t('c_emp'),t('c_name'),t('c_kind'),t('c_urg')];
+  ITEMS.forEach(function(it){ h.push(it[L==='ja'?0:1]); });
+  h.push(t('c_total')); h.push(t('c_photo')); return h;
+}
+function fmtSaved(iso){ var d=new Date(iso); if(isNaN(d)) return ''; return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes()); }
+function recRow(r){
+  var row=[fmtSaved(r.savedAt),r.date||'',r.dept||'',r.team||'',r.empno||'',r.name||'',r.kind||'',r.urgent?'●':''];
+  for(var i=1;i<=ITEMS.length;i++) row.push((r.items&&r.items['i'+i])||'');
+  row.push(r.total===undefined?'':r.total); row.push(r.photo?'✔':''); return row;
+}
+function recMatrix(){ return [recHead()].concat(recRows().map(recRow)); }
+function renderRecTable(){
+  var rows=recRows(), body='';
+  if(S.rerr) body='<div class="msg bad">'+t('rec_off')+'</div>';
+  else if(S.records===null) body='<div class="muted">'+t('rec_load')+'</div>';
+  else if(!rows.length) body='<div class="muted">'+t('rec_empty')+'</div>';
+  else body='<div class="tablewrap"><table class="items" style="min-width:1400px"><thead><tr>'+recHead().map(function(c){return '<th>'+esc(c)+'</th>';}).join('')+'</tr></thead><tbody>'+
+    rows.map(function(r){return '<tr>'+recRow(r).map(function(c,i){var L2=recHead().length; if(i===L2-1) return '<td>'+(r.photo?'<button class="btn ghost" type="button" data-photo="'+esc(r.docId||'')+'" style="padding:2px 8px">'+t('photo_view')+'</button>':'')+'</td>'; return '<td'+(i===L2-2?' class="n"':'')+'>'+esc(c)+'</td>';}).join('')+'</tr>';}).join('')+'</tbody></table></div>';
+  var pv=PHOTOVIEW?'<section class="card"><img src="'+PHOTOVIEW+'" alt="" style="max-width:100%;border-radius:6px"><div class="actions"><button class="btn ghost" id="photoclose" type="button">'+t('photo_close')+'</button></div></section>':'';
+  return pv+'<section class="card"><div><h2>'+t('rec_h')+'</h2><div class="muted">'+rows.length+t('rec_cnt')+'</div></div>'+body+
+    '<div id="recmsg"></div><div class="actions"><button class="btn" id="csv" type="button"'+(rows.length?'':' disabled')+'>'+t('rec_csv')+'</button>'+
+    (S.sheets&&S.sheets.enabled?'<button class="btn ghost" id="gsync" type="button">'+t('sync_btn')+(S.sheets.unsynced?' ('+S.sheets.unsynced+')':'')+'</button>':'')+
+    '<button class="btn ghost" id="tsv" type="button"'+(rows.length?'':' disabled')+'>'+t('rec_tsv')+'</button>'+
+    '<button class="btn ghost" id="recback" type="button">'+t('rec_back')+'</button></div></section>';
+}
+function renderGate(){
+  return '<section class="card"><div><h2>'+t('pass_h')+'</h2></div>'+
+    '<div class="field"><input type="password" id="pass" inputmode="numeric" autocomplete="off" aria-label="'+t('pass_h')+'"></div>'+
+    (PASSERR?'<div class="msg bad" role="alert">'+t('pass_bad')+'</div>':'')+
+    '<div class="actions"><button class="btn" id="unlock" type="button">'+t('pass_btn')+'</button><button class="btn ghost" id="recback" type="button">'+t('rec_back')+'</button></div></section>';
+}
+function renderRecords(){
+  if(!UNLOCKED) return renderGate();
+  var tabs='<div class="actions"><button class="btn'+(TAB==='rec'?'':' ghost')+'" id="tabrec" type="button">'+t('tab_rec')+'</button><button class="btn'+(TAB==='ros'?'':' ghost')+'" id="tabros" type="button">'+t('tab_ros')+'</button></div>';
+  return tabs+(TAB==='ros'?renderRoster():renderRecTable());
+}
+function renderRoster(){
+  var list=ROSTDOCS.length?'<div class="tablewrap"><table class="items" style="min-width:420px"><thead><tr><th>'+t('ros_emp')+'</th><th>'+t('ros_name')+'</th><th></th></tr></thead><tbody>'+
+    ROSTDOCS.map(function(r){return '<tr><td>'+esc(r.empno)+'</td><td>'+esc(r.name)+'</td><td><button class="btn ghost" type="button" data-del="'+esc(r.id)+'" style="padding:4px 10px">'+t('ros_del')+'</button></td></tr>';}).join('')+'</tbody></table></div>'
+    :'<div class="muted">'+t('ros_none')+'</div>';
+  return '<section class="card"><div><h2>'+t('ros_h')+'</h2><div class="muted">'+t('ros_p')+'</div><div class="muted">'+ROSTDOCS.length+t('ros_cnt')+'</div></div>'+
+    '<div class="row"><div class="field"><label for="rin_emp">'+t('ros_emp')+'</label><input type="text" id="rin_emp" inputmode="numeric" value="'+esc(RIN.empno)+'"></div>'+
+    '<div class="field"><label for="rin_name">'+t('ros_name')+'</label><input type="text" id="rin_name" value="'+esc(RIN.name)+'"></div></div>'+
+    '<div class="actions"><button class="btn" id="rosadd" type="button">'+t('ros_add')+'</button></div>'+
+    '<div class="field"><label for="rin_bulk">'+t('ros_bulk')+'</label><textarea id="rin_bulk" rows="4" style="font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%;box-sizing:border-box">'+esc(RIN.bulk)+'</textarea></div>'+
+    '<div class="actions"><button class="btn ghost" id="rosbulk" type="button">'+t('ros_bulk_btn')+'</button></div>'+
+    '<div id="rosmsg">'+(RMSG?'<div class="msg warn">'+esc(RMSG)+'</div>':'')+'</div>'+list+
+    '<div class="actions"><button class="btn ghost" id="recback" type="button">'+t('rec_back')+'</button></div></section>';
+}
+function rosMsg(m){ RMSG=m; var el=document.getElementById('rosmsg'); if(el) el.innerHTML=m?'<div class="msg warn">'+esc(m)+'</div>':''; }
+function loadRoster(){
+  return api('GET','/api/admin/roster').then(function(j){ ROSTDOCS=(j.rows||[]).map(function(r){return {id:r.empno,empno:r.empno,name:r.name};}); ROSTERON=ROSTDOCS.length>0; if(S.view==='records'&&UNLOCKED&&TAB==='ros') render(); }).catch(function(){});
+}
+function rosterAdd(){
+  if(!String(RIN.empno).trim()||!String(RIN.name).trim()){ rosMsg(t('ros_bad')); return; }
+  api('POST','/api/admin/roster',{rows:[{empno:RIN.empno,name:RIN.name}]})
+    .then(function(){ RIN.empno='';RIN.name='';RMSG=t('ros_ok'); return loadRoster(); })
+    .then(function(){ render(); var el=document.getElementById('rin_emp'); if(el) el.focus(); })
+    .catch(function(){ rosMsg(t('ros_fail')); });
+}
+function rosterBulk(){
+  var rows=[]; RIN.bulk.split(/\r?\n/).forEach(function(line){ var m=/^\s*(\S+?)[\s,，\t\u3000]+(.+?)\s*$/.exec(line); if(m) rows.push({empno:m[1],name:m[2]}); });
+  if(!rows.length){ rosMsg(t('ros_bad')); return; }
+  api('POST','/api/admin/roster',{rows:rows}).then(function(j){ RIN.bulk=''; RMSG=(j.saved||rows.length)+t('ros_cnt')+' '+t('ros_ok'); return loadRoster(); }).then(function(){ render(); }).catch(function(){ rosMsg(t('ros_fail')); });
+}
+function rosterDel(id){ api('DELETE','/api/admin/roster/'+encodeURIComponent(id)).then(loadRoster).catch(function(){ rosMsg(t('ros_fail')); }); }
+function showPhoto(id){
+  api('GET','/api/admin/photo/'+encodeURIComponent(id)).then(function(j){ if(j&&/^data:image\//.test(j.data||'')){ PHOTOVIEW=j.data; render(); window.scrollTo(0,0); } }).catch(function(){});
+}
+function tryUnlock(){
+  var el=document.getElementById('pass'); var v=el?el.value:'';
+  api('POST','/api/admin/login',{passcode:v})
+    .then(function(){ UNLOCKED=true; PASSERR=false; render(); startRecords(); })
+    .catch(function(){ PASSERR=true; render(); var e2=document.getElementById('pass'); if(e2) e2.focus(); });
+}
+function lookupEmp(){
+  var f=S.f, k=empNorm(f.empno);
+  f.nameLocked=false;
+  function paint(msg){
+    var n=document.getElementById('name'); if(n){ n.value=f.name; n.readOnly=f.nameLocked; }
+    var fe=document.getElementById('ferr'); if(fe) fe.innerHTML=msg?'<div class="msg bad" role="alert">'+esc(msg)+'</div>':'';
+  }
+  if(!k){ paint(''); return; }
+  api('GET','/api/lookup?empno='+encodeURIComponent(k)).then(function(j){
+    if(empNorm(S.f.empno)!==k) return;
+    ROSTERON=!!j.rosterOn;
+    var msg='';
+    if(j.rosterOn){ if(j.found){ f.name=j.name; f.nameLocked=true; } else msg=t('e_notreg'); }
+    paint(msg);
+  }).catch(function(){ paint(''); });
+}
+function openRecords(){
+  S.view='records'; S.rerr=''; render();
+  if(UNLOCKED) startRecords();
+}
+function startRecords(){
+  S.records=null;
+  api('GET','/api/admin/requests').then(function(j){ S.records=j.rows||[]; S.sheets=j.sheets||{enabled:false,unsynced:0}; S.rerr=''; })
+    .catch(function(e){ if(e.status===401){ UNLOCKED=false; } S.rerr='err'; })
+    .then(function(){ if(S.view==='records') render(); });
+  loadRoster();
+}
+function syncSheets(){
+  recMsg('');
+  api('POST','/api/admin/sync').then(function(j){
+    if(!j.enabled) recMsg(t('sync_off'));
+    else if(j.error) recMsg(t('sync_fail')+' '+j.error);
+    else recMsg(j.added+' '+t('sync_ok'));
+    startRecords();
+  }).catch(function(){ recMsg(t('sync_fail')); });
+}
+function csvCell(c){ c=String(c); return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c; }
+function recMsg(txt){ var el=document.getElementById('recmsg'); if(el) el.innerHTML=txt?'<div class="msg warn">'+esc(txt)+'</div>':''; }
+function saveCSV(){
+  api('GET','/api/admin/export.csv').then(function(j){
+    var blob=new Blob([j.csv],{type:'text/csv;charset=utf-8'}), a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download='uniform-requests.csv'; document.body.appendChild(a); a.click(); a.remove();
+  }).catch(function(){ recMsg(t('rec_off')); });
+}
+function copyMatrix(btn){
+  var txt=recMatrix().map(function(r){return r.map(function(c){return String(c).replace(/[\t\r\n]+/g,' ');}).join('\t');}).join('\n'), label=btn.textContent;
+  function ok(){ btn.textContent=t('copied'); setTimeout(function(){btn.textContent=label;},1600); }
+  function fb(){ var ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');ok();}catch(e){} document.body.removeChild(ta); }
+  try{ navigator.clipboard.writeText(txt).then(ok,fb); }catch(e){ fb(); }
+}
+
+function makeForm(){
+  var f=S.f, err='';
+  if(!f.empno.trim()) err=t('e_empno');
+  else if(!f.name.trim()) err=t('e_name');
+  else if(!deptVal()) err=t('e_dept');
+  else if(TEAMS[f.dept]&&!f.team) err=t('e_team');
+  else if(!f.kind) err=t('e_kind');
+  else {
+    var any=false, miss=[];
+    ITEMS.forEach(function(it,i){ if((f.qty[i]||0)>0){ any=true; if(it[4]!=='a' && !(f.size[i]||'').trim()) miss.push(L==='ja'?it[0]:it[1]);
+      if(it[4]==='a' && !f.size[i]) err=t('e_ap'); }});
+    if(!any) err=t('e_items');
+    else if(miss.length) err=t('e_size')+miss.join(', ');
+    else if(pantsCount()>1) err=t('pants_note');
+    else if(!(f.d1&&f.d2&&f.d3)) err=t('e_decl');
+  }
+  if(err){ document.getElementById('ferr').innerHTML='<div class="msg bad" role="alert">'+esc(err)+'</div>'; S.err=err; return; }
+  var btn=document.getElementById('make'); if(btn) btn.disabled=true;
+  postRequest().then(function(res){
+    if(res&&res.name) f.name=res.name;
+    S.err=''; S.made=true; S.save='ok'; render(); window.scrollTo(0,0);
+  }).catch(function(e){
+    var d=(e&&e.data)||{}, msg;
+    if(d.error==='dup') msg=dupMessage(d.hits||[]);
+    else if(d.error==='notreg') msg=t('e_notreg');
+    else if(d.error==='rate') msg=t('sv_busy');
+    else msg=t('sv_fail');
+    S.err=msg; render();
+  });
+}
+
+function copyText(btn){
+  var txt=sheetText(), label=btn.textContent;
+  function ok(){ btn.textContent=t('copied'); setTimeout(function(){btn.textContent=label;},1600); }
+  function fallback(){
+    var ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select();
+    try{document.execCommand('copy');ok();}catch(e){} document.body.removeChild(ta);
+  }
+  try{ navigator.clipboard.writeText(txt).then(ok,fallback); }catch(e){ fallback(); }
+}
+
+render();
+})();
+</script>
+</body>
+</html>
